@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Recorded Classes</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-black text-white">
+
+<!-- 🔥 Moving Watermark -->
+<div id="watermark"
+  class="fixed text-white/20 text-sm pointer-events-none z-50 font-bold">
+  USER123
+</div>
+
+<div class="min-h-screen grid grid-cols-12">
+
+  <!-- Sidebar -->
+  <div class="col-span-3 border-r border-red-900/40 p-5 bg-gradient-to-b from-black to-zinc-950">
+    <h1 class="text-2xl font-bold text-red-500 mb-1 tracking-wide">BROTYPE</h1>
+    <p class="text-xs text-gray-500 mb-6">Brother You Never Had</p>
+
+    <div class="mb-6">
+      <p class="text-sm text-gray-400 mb-2">Daily Limit</p>
+      <div class="w-full bg-zinc-800 rounded-full h-2">
+        <div id="progressBar" class="bg-red-500 h-2 rounded-full" style="width:0%"></div>
+      </div>
+      <p id="progressText" class="text-xs mt-2 text-gray-400"></p>
+    </div>
+
+    <div id="videoList" class="space-y-2"></div>
+  </div>
+
+  <!-- Player -->
+  <div class="col-span-9 p-6">
+    <div id="emptyState" class="h-full flex items-center justify-center text-gray-500">
+      Select a video to start learning
+    </div>
+
+    <div id="playerSection" class="hidden space-y-4">
+      <h2 id="videoTitle" class="text-xl font-semibold"></h2>
+
+      <video id="videoPlayer"
+        controls
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
+        class="w-full rounded-2xl border border-zinc-800">
+      </video>
+
+      <div id="limitMsg" class="text-red-400 font-medium hidden">
+        🔒 Daily limit reached. Next videos available after 24 hours.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================= CONFIG =================
+const VIDEOS = [
+  { id: 1, title: "Part 1 | Introduction to Web Designing", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+  { id: 2, title: "Part 2 | HTML Basics", url: "https://www.w3schools.com/html/movie.mp4" },
+  { id: 3, title: "Part 3 | CSS Fundamentals", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+  { id: 4, title: "Part 4 | JavaScript Intro", url: "https://www.w3schools.com/html/movie.mp4" }
+];
+
+const DAILY_LIMIT = 2;
+
+// ================= UTIL =================
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+let data = JSON.parse(localStorage.getItem("video_watch_data") || "{}");
+
+if (data.date !== todayKey()) {
+  data = { date: todayKey(), count: 0, ids: [] };
+  localStorage.setItem("video_watch_data", JSON.stringify(data));
+}
+
+// ================= ELEMENTS =================
+const videoList = document.getElementById("videoList");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
+const player = document.getElementById("videoPlayer");
+const titleEl = document.getElementById("videoTitle");
+const emptyState = document.getElementById("emptyState");
+const playerSection = document.getElementById("playerSection");
+const limitMsg = document.getElementById("limitMsg");
+
+// ================= PROGRESS =================
+function updateProgress() {
+  const percent = (data.count / DAILY_LIMIT) * 100;
+  progressBar.style.width = percent + "%";
+  progressText.textContent = `${data.count}/${DAILY_LIMIT} videos watched today`;
+}
+
+// ================= RENDER =================
+function renderVideos() {
+  videoList.innerHTML = "";
+
+  VIDEOS.forEach(video => {
+    const watched = data.ids.includes(video.id);
+    const locked = data.count >= DAILY_LIMIT && !watched;
+
+    const card = document.createElement("div");
+    card.className =
+      `bg-zinc-900 border border-zinc-800 p-3 rounded-xl flex gap-3 items-center cursor-pointer transition
+      ${locked ? 'opacity-60' : 'hover:border-red-600 hover:bg-zinc-800'}`;
+
+    card.innerHTML = `
+      <span class="text-red-500">${watched ? '✅' : locked ? '🔒' : '▶️'}</span>
+      <p class="text-sm">${video.title}</p>
+    `;
+
+    card.onclick = () => playVideo(video, locked);
+    videoList.appendChild(card);
+  });
+}
+
+// ================= PLAY =================
+function playVideo(video, locked) {
+  if (locked) return;
+
+  if (!data.ids.includes(video.id)) {
+    data.count++;
+    data.ids.push(video.id);
+    localStorage.setItem("video_watch_data", JSON.stringify(data));
+  }
+
+  emptyState.classList.add("hidden");
+  playerSection.classList.remove("hidden");
+
+  player.src = video.url;
+  titleEl.textContent = video.title;
+
+  if (data.count >= DAILY_LIMIT) {
+    limitMsg.classList.remove("hidden");
+  }
+
+  updateProgress();
+  renderVideos();
+}
+
+// =================🔥 ANTI RECORDING =================
+
+// 🚫 Right click
+window.addEventListener("contextmenu", e => e.preventDefault());
+
+// 🚫 Key blocks
+document.addEventListener("keydown", e => {
+  if (
+    e.key === "PrintScreen" ||
+    (e.ctrlKey && ["s","u","p"].includes(e.key.toLowerCase()))
+  ) {
+    e.preventDefault();
+  }
+});
+
+// 🚫 Tab switch pause
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    player.pause();
+  }
+});
+
+// 🚫 DevTools detect (basic)
+setInterval(() => {
+  const threshold = 160;
+  if (window.outerWidth - window.innerWidth > threshold) {
+    player.pause();
+  }
+}, 1000);
+
+// =================🔥 MOVING WATERMARK =================
+setInterval(() => {
+  const wm = document.getElementById("watermark");
+  wm.style.top = Math.random() * 80 + "%";
+  wm.style.left = Math.random() * 80 + "%";
+}, 3000);
+
+// ================= INIT =================
+updateProgress();
+renderVideos();
+</script>
+
+</body>
+</html>
